@@ -91,7 +91,13 @@ class RunAPI:
         from .errors import _raise_for_status
         _raise_for_status(r.status_code, r.text)
         cdp_info = r.json()
-        cdp_url = cdp_info.get("cdp_url", f"http://{self._client._http.base_url.host}:{self._client._http.base_url.port}/api/profiles/{profile_id}/cdp")
+        # Manager returns relative path; resolve to absolute URL
+        cdp_path = cdp_info.get("cdp_url", f"/api/profiles/{profile_id}/cdp")
+        base = f"{self._client._http.base_url.scheme}://{self._client._http.base_url.host}"
+        port = self._client._http.base_url.port
+        if port and port not in (80, 443):
+            base += f":{port}"
+        cdp_url = f"{base}{cdp_path}"
 
         from playwright.async_api import async_playwright
         pw = await async_playwright().start()

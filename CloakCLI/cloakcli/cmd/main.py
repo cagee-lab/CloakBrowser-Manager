@@ -41,13 +41,17 @@ def get_client(ctx: typer.Context):
     return CloakBrowserManagerClient.from_config(ctx.obj["config"])
 
 
+# Register top-level commands
+from . import browser
+app.command("launch")(browser.launch)
+app.command("stop")(browser.stop)
+app.command("status")(browser.status)
+
 # Register subcommand groups
 from . import config_cmd
 app.add_typer(config_cmd.app, name="config")
 from . import profile
 app.add_typer(profile.app, name="profile")
-from . import browser
-app.add_typer(browser.app, name="browser")
 from . import run
 app.add_typer(run.app, name="run")
 from . import clipboard

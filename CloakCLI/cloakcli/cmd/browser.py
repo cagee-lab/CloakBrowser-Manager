@@ -1,4 +1,4 @@
-"""Browser lifecycle subcommands: launch, stop, status."""
+"""Browser lifecycle commands: launch, stop, status (registered at top level)."""
 
 from __future__ import annotations
 
@@ -8,10 +8,7 @@ from rich.table import Table
 
 from ..utils import print_json
 
-app = typer.Typer(name="browser", help="Control browser lifecycle")
 
-
-@app.command("launch")
 def launch(
     ctx: typer.Context,
     profile_id: str = typer.Argument(..., help="Profile ID to launch"),
@@ -31,7 +28,6 @@ def launch(
     console.print(table)
 
 
-@app.command("stop")
 def stop(
     ctx: typer.Context,
     profile_id: str = typer.Argument(..., help="Profile ID to stop"),
@@ -43,7 +39,6 @@ def stop(
     Console().print(f"[green]Stopped browser for profile:[/green] {profile_id}")
 
 
-@app.command("status")
 def status(
     ctx: typer.Context,
     profile_id: str = typer.Argument(None, help="Profile ID (omit for system overview)"),
