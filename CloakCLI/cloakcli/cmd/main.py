@@ -50,5 +50,5 @@ from . import browser
 app.add_typer(browser.app, name="browser")
 from . import run
 app.add_typer(run.app, name="run")
-# from . import clipboard
-# app.command()(clipboard.read)  # etc.
+from . import clipboard
+app.add_typer(clipboard.app, name="clipboard")
