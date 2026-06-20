@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-cloak-cli = "cloakcli.cmd.main:main"
+cloak-cli = "cloakcli.cmd.main:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["cloakcli"]
