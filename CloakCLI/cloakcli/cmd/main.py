@@ -46,7 +46,8 @@ from . import config_cmd
 app.add_typer(config_cmd.app, name="config")
 from . import profile
 app.add_typer(profile.app, name="profile")
-# from . import browser, clipboard, run
-# app.add_typer(browser.app, name="browser")
+from . import browser
+app.add_typer(browser.app, name="browser")
+# from . import clipboard, run
 # app.add_typer(run.app, name="run")
 # app.command()(clipboard.read)  # etc.
