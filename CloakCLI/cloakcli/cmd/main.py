@@ -41,11 +41,12 @@ def get_client(ctx: typer.Context):
     return CloakBrowserManagerClient.from_config(ctx.obj["config"])
 
 
-# Register subcommand groups (imports deferred until modules are created)
-# from . import profile, browser, clipboard, run
-# app.add_typer(profile.app, name="profile")
+# Register subcommand groups
+from . import config_cmd
+app.add_typer(config_cmd.app, name="config")
+from . import profile
+app.add_typer(profile.app, name="profile")
+# from . import browser, clipboard, run
 # app.add_typer(browser.app, name="browser")
 # app.add_typer(run.app, name="run")
 # app.command()(clipboard.read)  # etc.
-from . import config_cmd
-app.add_typer(config_cmd.app, name="config")
