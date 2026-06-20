@@ -3,14 +3,15 @@
 import pytest
 import httpx
 from cloakcli.client import CloakBrowserManagerClient
-from cloakcli.errors import AuthenticationError, NotFoundError
+from cloakcli.errors import APIError, AuthenticationError, ConflictError, NotFoundError
 
 
 @pytest.fixture
 def client():
     """Create a client with mocked transport."""
     client = CloakBrowserManagerClient(host="http://test:8080", token="test-token")
-    return client
+    yield client
+    client.close()
 
 
 class TestProfiles:
@@ -106,3 +107,87 @@ class TestAuth:
         )
         with pytest.raises(AuthenticationError):
             client.profiles.list()
+
+
+class TestErrorHandling:
+    def test_404_raises_not_found(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url="http://test:8080/api/profiles/nonexistent",
+            status_code=404,
+            json={"detail": "Not found"},
+        )
+        with pytest.raises(NotFoundError):
+            client.profiles.get("nonexistent")
+
+    def test_409_raises_conflict(self, client, httpx_mock):
+        httpx_mock.add_response(
+            method="POST",
+            url="http://test:8080/api/profiles",
+            status_code=409,
+            json={"detail": "Already exists"},
+        )
+        with pytest.raises(ConflictError):
+            client.profiles.create(name="dup")
+
+    def test_500_raises_api_error(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url="http://test:8080/api/profiles",
+            status_code=500,
+            json={"detail": "Internal error"},
+        )
+        with pytest.raises(APIError) as exc:
+            client.profiles.list()
+        assert exc.value.status_code == 500
+
+    def test_api_error_includes_status_code(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url="http://test:8080/api/profiles",
+            status_code=503,
+        )
+        with pytest.raises(APIError) as exc:
+            client.profiles.list()
+        assert exc.value.status_code == 503
+
+
+class TestClipboard:
+    def test_read(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url="http://test:8080/api/profiles/1/clipboard",
+            json={"text": "hello world"},
+        )
+        result = client.clipboard.read("1")
+        assert result == "hello world"
+
+    def test_write(self, client, httpx_mock):
+        httpx_mock.add_response(
+            method="POST",
+            url="http://test:8080/api/profiles/1/clipboard",
+            json={"ok": True},
+        )
+        client.clipboard.write("1", "new text")
+        request = httpx_mock.get_request(
+            method="POST", url="http://test:8080/api/profiles/1/clipboard"
+        )
+        import json
+        body = json.loads(request.content)
+        assert body["text"] == "new text"
+
+
+class TestProfileUpdate:
+    def test_partial_update_sends_only_set_fields(self, client, httpx_mock):
+        httpx_mock.add_response(
+            method="PUT",
+            url="http://test:8080/api/profiles/1",
+            json={
+                "id": "1", "name": "renamed", "fingerprint_seed": 1,
+                "user_data_dir": "/d", "created_at": "", "updated_at": "",
+            },
+        )
+        profile = client.profiles.update("1", name="renamed")
+        assert profile.name == "renamed"
+        request = httpx_mock.get_request(
+            method="PUT", url="http://test:8080/api/profiles/1"
+        )
+        import json
+        body = json.loads(request.content)
+        assert body == {"name": "renamed"}  # only name sent
