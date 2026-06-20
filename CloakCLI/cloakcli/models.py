@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TagCreate(BaseModel):
@@ -88,15 +88,20 @@ class Profile(BaseModel):
     clipboard_sync: bool = True
     auto_launch: bool = False
     color_scheme: str | None = None
-    launch_args: list[str] = Field(default_factory=list)
+    launch_args: list[str] = []
     notes: str | None = None
     user_data_dir: str
     created_at: str
     updated_at: str
-    tags: list[TagResponse] = Field(default_factory=list)
+    tags: list[TagResponse] = []
     status: str = "stopped"
     vnc_ws_port: int | None = None
     cdp_url: str | None = None
+
+    @field_validator("clipboard_sync", mode="before")
+    @classmethod
+    def coerce_clipboard_sync(cls, v: object) -> bool:
+        return v if v is not None else True
 
 
 class LaunchResult(BaseModel):
