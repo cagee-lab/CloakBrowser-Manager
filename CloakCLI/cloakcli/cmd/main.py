@@ -48,6 +48,7 @@ from . import profile
 app.add_typer(profile.app, name="profile")
 from . import browser
 app.add_typer(browser.app, name="browser")
-# from . import clipboard, run
-# app.add_typer(run.app, name="run")
+from . import run
+app.add_typer(run.app, name="run")
+# from . import clipboard
 # app.command()(clipboard.read)  # etc.
