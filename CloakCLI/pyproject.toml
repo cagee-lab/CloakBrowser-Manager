@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cloak-cli"
+version = "0.1.0"
+description = "CLI and SDK client for CloakBrowser Manager"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+    "cloakbrowser>=0.3.31",
+    "playwright",
+    "httpx",
+    "typer[all]>=0.12",
+    "rich",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+cloak-cli = "cloakcli.cmd.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cloakcli"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
