@@ -83,7 +83,10 @@ class RunAPI:
         self._client = client
 
     async def _with_page(self, profile_id: str, fast: bool = False):
-        """Connect to profile via CDP, optionally apply humanize, return (browser, page)."""
+        """Connect to profile via CDP, optionally apply humanize, return (pw, browser, page).
+
+        Returns the playwright instance so callers can properly stop it.
+        """
         # Get profile config
         profile = self._client.profiles.get(profile_id)
         # Get CDP URL
@@ -109,7 +112,6 @@ class RunAPI:
                     from cloakbrowser import humanize_browser
                     humanize_browser(browser, human_preset=profile.human_preset)
                 except ImportError:
-                    # fallback: connect_and_humanize not yet available, use direct patch
                     pass
 
         # Get active page
@@ -117,168 +119,179 @@ class RunAPI:
             pages = browser.contexts[0].pages
             page = pages[-1] if pages else await browser.contexts[0].new_page()
         else:
-            ctx = browser.contexts[0] if browser.contexts else await browser.new_context()
+            ctx = await browser.new_context()
             page = await ctx.new_page()
 
-        return browser, page
+        return pw, browser, page
+
+    async def _close(self, pw, browser):
+        """Close browser and stop playwright to prevent event-loop cleanup warnings."""
+        try:
+            await browser.close()
+        except Exception:
+            pass
+        try:
+            await pw.stop()
+        except Exception:
+            pass
 
     # --- Navigation ---
     async def open(self, profile_id: str, url: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.goto(url)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def back(self, profile_id: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.go_back()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def forward(self, profile_id: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.go_forward()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def reload(self, profile_id: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.reload()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     # --- Interactions ---
     async def click(self, profile_id: str, selector: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.click(selector)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def dblclick(self, profile_id: str, selector: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.dblclick(selector)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def type(self, profile_id: str, selector: str, text: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.type(selector, text)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def fill(self, profile_id: str, selector: str, text: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.fill(selector, text)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def press(self, profile_id: str, key: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.keyboard.press(key)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def hover(self, profile_id: str, selector: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.hover(selector)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def focus(self, profile_id: str, selector: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.focus(selector)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def select(self, profile_id: str, selector: str, value: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.select_option(selector, value)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def check(self, profile_id: str, selector: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.check(selector)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def uncheck(self, profile_id: str, selector: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.uncheck(selector)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     # --- Info ---
     async def get_text(self, profile_id: str, selector: str) -> str:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             return await page.text_content(selector) or ""
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def get_html(self, profile_id: str, selector: str) -> str:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             return await page.inner_html(selector)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def get_value(self, profile_id: str, selector: str) -> str:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             return await page.input_value(selector)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def get_attr(self, profile_id: str, selector: str, name: str) -> str | None:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             return await page.get_attribute(selector, name)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def get_title(self, profile_id: str) -> str:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             return await page.title()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def get_url(self, profile_id: str) -> str:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             return page.url
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def get_count(self, profile_id: str, selector: str) -> int:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             return await page.locator(selector).count()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def get_box(self, profile_id: str, selector: str) -> dict | None:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             box = await page.locator(selector).first.bounding_box()
             return box
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     # --- Capture ---
     async def snapshot(
@@ -290,7 +303,7 @@ class RunAPI:
         scope: str | None = None,
     ) -> str:
         """Generate accessibility tree snapshot compatible with agent-browser format."""
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             js = _SNAPSHOT_JS
             args = {
@@ -299,38 +312,38 @@ class RunAPI:
                 "maxDepth": max_depth,
                 "scope": scope,
             }
-            return await page.evaluate(js, args)
+            return await page.evaluate(js.strip(), args)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def screenshot(self, profile_id: str, path: str | None = None, full: bool = False, fast: bool = False) -> str:
         import time
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             dest = path or f"screenshot-{int(time.time() * 1000)}.png"
             await page.screenshot(path=dest, full_page=full)
             return dest
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def pdf(self, profile_id: str, path: str, fast: bool = False) -> str:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.pdf(path=path)
             return path
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def eval(self, profile_id: str, code: str, fast: bool = False) -> Any:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             return await page.evaluate(code)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     # --- Tab ---
     async def tab_list(self, profile_id: str) -> list[dict]:
-        browser, page = await self._with_page(profile_id, fast=True)
+        pw, browser, page = await self._with_page(profile_id, fast=True)
         try:
             tabs = []
             for i, ctx in enumerate(browser.contexts):
@@ -343,29 +356,29 @@ class RunAPI:
                     })
             return tabs
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def tab_new(self, profile_id: str, url: str | None = None, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             new_page = await browser.contexts[0].new_page()
             if url:
                 await new_page.goto(url)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def tab_switch(self, profile_id: str, tab_ref: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             pages = browser.contexts[0].pages
             idx = int(tab_ref.lstrip("t")) - 1
             if 0 <= idx < len(pages):
                 await pages[idx].bring_to_front()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def tab_close(self, profile_id: str, tab_ref: str | None = None, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             if tab_ref is None:
                 await page.close()
@@ -375,19 +388,19 @@ class RunAPI:
                 if 0 <= idx < len(pages):
                     await pages[idx].close()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def window_new(self, profile_id: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await browser.new_context()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     # --- Util ---
     async def wait(self, profile_id: str, target: str, fast: bool = False,
                    load_state: str | None = None, state: str = "visible") -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             if target.isdigit():
                 await page.wait_for_timeout(int(target))
@@ -396,37 +409,33 @@ class RunAPI:
             else:
                 await page.wait_for_selector(target, state=state)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def scroll(self, profile_id: str, direction: str, px: int = 300, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             deltas = {"up": (0, -px), "down": (0, px), "left": (-px, 0), "right": (px, 0)}
             dx, dy = deltas.get(direction, (0, px))
             await page.mouse.wheel(dx, dy)
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     async def scrollintoview(self, profile_id: str, selector: str, fast: bool = False) -> None:
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         try:
             await page.locator(selector).first.scroll_into_view_if_needed()
         finally:
-            await browser.close()
+            await self._close(pw, browser)
 
     # --- Batch ---
     async def batch(self, profile_id: str, commands: list[list], fast: bool = False) -> list[Any]:
         """Execute multiple commands in a single CDP connection."""
-        browser, page = await self._with_page(profile_id, fast=fast)
+        pw, browser, page = await self._with_page(profile_id, fast=fast)
         results = []
         try:
             for cmd in commands:
                 action = cmd[0]
                 args = cmd[1:]
-                method = getattr(self, action, None)
-                if method is None:
-                    results.append({"error": f"Unknown action: {action}"})
-                    continue
                 try:
                     # Call with same browser/page context
                     if action in ("open",):
@@ -450,8 +459,21 @@ class RunAPI:
                         results.append(path)
                     elif action in ("snapshot",):
                         interactive_only = "-i" in args
-                        result = await page.evaluate(_SNAPSHOT_JS, {"interactiveOnly": interactive_only})
+                        result = await page.evaluate(_SNAPSHOT_JS.strip(), {"interactiveOnly": interactive_only})
                         results.append(result)
+                    elif action in ("get",):
+                        what = args[0] if args else "text"
+                        sel = args[1] if len(args) > 1 else "body"
+                        if what == "text":
+                            results.append(await page.text_content(sel) or "")
+                        elif what == "title":
+                            results.append(await page.title())
+                        elif what == "url":
+                            results.append(page.url)
+                        elif what == "html":
+                            results.append(await page.inner_html(sel))
+                        else:
+                            results.append(await page.text_content(sel) or "")
                     elif action in ("wait",):
                         if args and args[0].isdigit():
                             await page.wait_for_timeout(int(args[0]))
@@ -463,7 +485,7 @@ class RunAPI:
                 except Exception as e:
                     results.append({"error": str(e)})
         finally:
-            await browser.close()
+            await self._close(pw, browser)
         return results
 
 
@@ -561,51 +583,101 @@ _SNAPSHOT_JS = r"""
     const interactiveRoles = new Set([
         'button', 'link', 'textbox', 'searchbox', 'combobox', 'listbox',
         'menuitem', 'option', 'radio', 'switch', 'tab', 'menuitemcheckbox',
-        'menuitemradio', 'treeitem', 'checkbox', 'option', 'spinbutton',
-        'slider', 'gridcell', 'heading', 'img', 'listitem'
+        'menuitemradio', 'treeitem', 'checkbox', 'spinbutton',
+        'slider', 'gridcell', 'heading', 'img', 'text', 'listitem'
     ]);
+
+    // Map HTML tags to implicit ARIA roles
+    const tagRoleMap = {
+        'a': 'link', 'button': 'button', 'input': 'textbox', 'select': 'combobox',
+        'textarea': 'textbox', 'img': 'img', 'h1': 'heading', 'h2': 'heading',
+        'h3': 'heading', 'h4': 'heading', 'h5': 'heading', 'h6': 'heading',
+        'li': 'listitem', 'option': 'option', 'nav': 'navigation',
+    };
+
+    const lines = [];
     let refCounter = 0;
-    function walk(node, depth, scopeSelector) {
-        if (scopeSelector && depth === 0) {
-            const match = document.querySelector(scopeSelector);
-            if (match && match !== node) return null;
+
+    function isInteractive(node) {
+        const role = (node.getAttribute('role') || '').trim().toLowerCase();
+        const tag = (node.tagName || '').toLowerCase();
+        const implicit = tagRoleMap[tag] || tag;
+        return interactiveRoles.has(role) || interactiveRoles.has(implicit);
+    }
+
+    function getRole(node) {
+        const explicit = (node.getAttribute('role') || '').trim().toLowerCase();
+        if (explicit) return explicit;
+        const tag = (node.tagName || '').toLowerCase();
+        return tagRoleMap[tag] || tag;
+    }
+
+    function getName(node) {
+        const role = getRole(node);
+        let name = (node.getAttribute('aria-label') || node.title || '').trim();
+        if (!name && role === 'img') name = (node.getAttribute('alt') || '').trim();
+        if (!name && (role === 'link' || role === 'button' || role === 'heading')) {
+            name = (node.textContent || '').trim().slice(0, 100);
         }
-        if (args.maxDepth != null && depth > args.maxDepth) return null;
-        let role = (node.getAttribute('role') || node.tagName.toLowerCase() || '').trim();
-        let name = (node.getAttribute('aria-label') || node.getAttribute('name') || node.title || '').trim();
-        if (!name && (role === 'link' || role === 'button')) {
-            name = node.textContent.trim().slice(0, 100);
+        return name;
+    }
+
+    function walk(node, depth, scope) {
+        if (!node || node.nodeType !== 1) return;  // Element nodes only
+
+        // Scope filter (only at root level)
+        if (scope && depth === 0) {
+            const scoped = node.querySelector(scope) || (node.matches && node.matches(scope) ? node : null);
+            if (scoped) node = scoped;
+            else return;
         }
-        if (!name && role === 'img') name = node.getAttribute('alt') || '';
-        if (args.interactiveOnly && !interactiveRoles.has(role) && role !== 'document') return null;
-        if (args.compact && !name && !interactiveRoles.has(role) && role !== 'document') {
-            const kids = [];
+
+        // Depth limit
+        if (args.maxDepth != null && depth > args.maxDepth) return;
+
+        const role = getRole(node);
+        const name = getName(node);
+        const interactive = isInteractive(node);
+
+        // Interactive-only: skip non-interactive containers but still walk children
+        if (depth > 0 && args.interactiveOnly && !interactive && !name) {
             for (const child of node.children) {
-                const result = walk(child, depth + 1, null);
-                if (result) kids.push(...result);
+                walk(child, depth, null);
             }
-            return kids.length ? kids : null;
+            return;
         }
-        const r = [];
-        const hasRef = interactiveRoles.has(role) || role === 'link' || role === 'button' || role === 'textbox' || role === 'img';
-        if (hasRef) {
+
+        // Compact: skip empty container elements
+        if (args.compact && !name && !interactive && role !== 'body') {
+            for (const child of node.children) {
+                walk(child, depth + 1, null);
+            }
+            return;
+        }
+
+        const indent = '  '.repeat(depth);
+        let line = indent + '- ' + role;
+        if (name) line += ' "' + name + '"';
+        if (interactive) {
             refCounter++;
             node.setAttribute('data-snapshot-ref', 'e' + refCounter);
+            line += ' [@e' + refCounter + ']';
         }
-        let line = '- ' + role;
-        if (name) line += ' "' + name + '"';
-        if (hasRef) line += ' [@e' + refCounter + ']';
-        if (role === 'link' && node.href) line += ' -> ' + node.href;
-        r.push(line);
+        if (role === 'link' && node.href) {
+            line += ' -> ' + node.href;
+        }
+        lines.push(line);
+
         for (const child of node.children) {
-            const kids = walk(child, depth + 1, null);
-            if (kids) {
-                for (const k of kids) r.push('  ' + k);
-            }
+            walk(child, depth + 1, null);
         }
-        return r;
     }
-    const result = walk(document.body, 0, args.scope);
-    return result ? result.join('\n') : '';
+
+    // Start traversal from body, falling back to documentElement
+    const root = args.scope ? document.querySelector(args.scope) : document.body;
+    if (root) walk(root, 1, args.scope);
+    else walk(document.documentElement, 0, args.scope);
+
+    return lines.join('\n');
 }
 """
